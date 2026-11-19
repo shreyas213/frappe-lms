@@ -38,3 +38,4 @@ sites/*/.test_log
 sites/*/touched_tables.json
 sites/*/learning.db
 .git_app_backup/
+/sites/*/public/files/
