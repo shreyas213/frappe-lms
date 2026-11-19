@@ -1,0 +1,707 @@
+{%- macro alert_banner(type, text="") -%}
+{%- set is_error = type == "error" -%}
+<div class="login-{{ type }}-banner es-alert hidden" role="alert" data-theme="{{ 'red' if is_error else 'green' }}">
+    <svg width="16" height="16" style="fill: none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <use href="#icon-{{ 'circle-alert' if is_error else 'circle-check' }}"></use>
+    </svg>
+    <div class="es-alert__content">
+        <span class="es-alert__title">{{ text }}</span>
+    </div>
+</div>
+{%- endmacro -%}
+{% set custom_signup_content = frappe.db.get_single_value("LMS Settings", "custom_signup_content") %}
+{% set user_category = frappe.db.get_single_value("LMS Settings", "user_category") %}
+
+<form class="form-signin signup-form" role="form" novalidate>
+    <div class="page-card-body">
+        {{ alert_banner("success") }}
+        {{ alert_banner("error") }}
+
+        <div class="form-group signup-field-group">
+            <label class="form-label text-base text-ink-gray-5 w-full mb-0" for="signup_fullname">{{ _("Full Name") }} <span class="required-indicator text-ink-red-5 select-none" aria-hidden="true">*</span></label>
+            <input type="text" id="signup_fullname" class="form-control signup-input" placeholder="{{ _('Jane Doe') }}"
+                required autofocus autocomplete="name">
+            <p class="field-error text-base text-ink-red-8 mb-0"></p>
+        </div>
+
+        <div class="form-group signup-field-group">
+            <label class="form-label text-base text-ink-gray-5 w-full mb-0" for="signup_email">{{ _("Email Address") }} <span class="required-indicator text-ink-red-5 select-none" aria-hidden="true">*</span></label>
+            <input type="email" id="signup_email" class="form-control signup-input"
+                placeholder="{{ _('jane@example.com') }}" required autocomplete="email">
+            <p class="field-error text-base text-ink-red-8 mb-0"></p>
+        </div>
+
+        <div class="form-group signup-field-group">
+            <label class="form-label text-base text-ink-gray-5 w-full mb-0" for="signup_password">{{ _("Password") }} <span class="required-indicator text-ink-red-5 select-none" aria-hidden="true">*</span></label>
+            <div class="password-input-wrapper">
+                <input type="password" id="signup_password" class="form-control signup-input password-input"
+                    placeholder="{{ _('At least 6 characters') }}" required minlength="6" autocomplete="new-password">
+                <button type="button" id="toggle_signup_password" class="toggle-password-btn" aria-label="{{ _('Toggle password visibility') }}">
+                    <svg id="eye_icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"></path>
+                        <circle cx="12" cy="12" r="3"></circle>
+                    </svg>
+                </button>
+            </div>
+            <p class="field-error text-base text-ink-red-8 mb-0"></p>
+        </div>
+
+        {% if user_category %}
+        <div class="form-group signup-field-group">
+            <div id="signup_user_category_select" class="w-full" data-label="{{ _('User Category') | e }}"></div>
+            <select id="user_category" class="hidden" data-fieldname="user_category"
+                    data-fieldtype="Select" aria-hidden="true" tabindex="-1" required>
+                    <option value="" disabled selected hidden>{{ _("Select a category") }}</option>
+                    <option value="Business Owner">{{ _("Business Owner") }}</option>
+                    <option value="Manager (Sales/Marketing/Customer)">{{ _("Manager (Sales/Marketing/Customer)") }}</option>
+                    <option value="Employee">{{ _("Employee") }}</option>
+                    <option value="Student">{{ _("Student") }}</option>
+                    <option value="Freelancer/Just looking">{{ _("Freelancer/Just looking") }}</option>
+                    <option value="Others">{{ _("Others") }}</option>
+            </select>
+            <p id="user_category_error" class="field-error text-base text-ink-red-8 mb-0 hidden" aria-hidden="true"></p>
+        </div>
+        {% endif %}
+
+        {% if custom_signup_content %}
+        <div class="form-group signup-field-group terms-field-group">
+            <label class="terms-label text-p-sm text-ink-gray-7 mb-0">
+                <input type="checkbox" id="signup-terms" class="terms-checkbox shrink-0" data-fieldtype="Check"
+                    data-fieldname="terms" autocomplete="off" required>
+                <span>{{ custom_signup_content }}</span>
+            </label>
+            <p class="field-error text-base text-ink-red-8 mb-0"></p>
+        </div>
+        {% endif %}
+    </div>
+
+    <div class="page-card-actions">
+        <button class="es-button w-full btn-signup" data-variant="solid"
+            type="submit" disabled>{{ _("Create Account") }}</button>
+
+        <p class="sign-up-message login-redirect-message text-p-sm text-ink-gray-6 mb-0">
+            <span>{{ _("Already have an account?") }}</span>
+            <a href="#login" class="login-link text-p-sm-semibold text-ink-gray-6">{{ _("Login") }}</a>
+        </p>
+    </div>
+</form>
+
+{% if user_category %}
+<link rel="stylesheet" href="/assets/lms/frontend/signup-select/signup-select.css">
+<script defer src="/assets/lms/frontend/signup-select/signup-select.js"></script>
+{% endif %}
+
+<style>
+    /* Center the signup section on desktop */
+    .for-signup {
+        display: flex !important;
+        flex-direction: column !important;
+        align-items: center !important;
+        justify-content: center !important;
+        min-height: calc(100vh - 120px) !important;
+        padding: 40px 16px !important;
+        box-sizing: border-box !important;
+        width: 100% !important;
+    }
+
+    /* Modern EdTech Card Container */
+    .for-signup .page-card {
+        max-width: 460px !important;
+        width: 100% !important;
+        padding: 38px 40px !important;
+        margin: 0 auto !important;
+        background-color: #ffffff !important;
+        border: 1px solid #e2e8f0 !important;
+        border-radius: 16px !important;
+        box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.08), 0 8px 10px -6px rgba(0, 0, 0, 0.04) !important;
+        box-sizing: border-box !important;
+    }
+
+    /* Header Styling */
+    .for-signup .page-card-head {
+        padding: 0 0 24px 0 !important;
+        margin: 0 auto !important;
+        text-align: center !important;
+        width: 100% !important;
+    }
+
+    .for-signup .page-card-head .app-logo {
+        max-height: 48px !important;
+        height: 48px !important;
+        width: auto !important;
+        margin: 0 auto 16px auto !important;
+        display: block !important;
+        object-fit: contain !important;
+    }
+
+    .for-signup .page-card-head h4 {
+        font-size: 24px !important;
+        font-weight: 700 !important;
+        color: #0f172a !important;
+        margin: 0 0 6px 0 !important;
+        line-height: 1.3 !important;
+        letter-spacing: -0.02em !important;
+    }
+
+    .for-signup .page-card-head .signup-subtitle {
+        font-size: 14px !important;
+        color: #64748b !important;
+        margin: 0 !important;
+        font-weight: 400 !important;
+        line-height: 1.5 !important;
+    }
+
+    /* Form Layout */
+    .signup-form {
+        display: flex !important;
+        flex-direction: column !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        margin: 0 !important;
+        box-sizing: border-box !important;
+    }
+
+    .signup-form .page-card-body {
+        display: flex !important;
+        flex-direction: column !important;
+        width: 100% !important;
+        gap: 0 !important;
+        margin: 0 !important;
+        padding: 0 !important;
+    }
+
+    /* Field Groups and Labels */
+    .signup-form .signup-field-group {
+        display: flex !important;
+        flex-direction: column !important;
+        align-items: flex-start !important;
+        width: 100% !important;
+        margin: 0 0 20px 0 !important;
+        position: relative !important;
+        box-sizing: border-box !important;
+    }
+
+    .signup-form .signup-field-group .form-label {
+        display: block !important;
+        width: 100% !important;
+        font-size: 13.5px !important;
+        font-weight: 600 !important;
+        color: #334155 !important;
+        margin: 0 0 6px 0 !important;
+        text-align: left !important;
+        line-height: 1.4 !important;
+        letter-spacing: -0.01em !important;
+    }
+
+    .signup-form .required-indicator {
+        color: #ef4444 !important;
+        margin-left: 2px !important;
+        font-weight: 700 !important;
+    }
+
+    /* Input Controls */
+    .signup-form input.signup-input,
+    .signup-form input.form-control {
+        display: block !important;
+        width: 100% !important;
+        height: 44px !important;
+        padding: 10px 14px !important;
+        font-size: 14px !important;
+        color: #0f172a !important;
+        background-color: #ffffff !important;
+        border: 1.5px solid #cbd5e1 !important;
+        border-radius: 8px !important;
+        box-sizing: border-box !important;
+        margin: 0 !important;
+        outline: none !important;
+        transition: border-color 0.2s ease, box-shadow 0.2s ease !important;
+        line-height: 1.5 !important;
+    }
+
+    .signup-form input.signup-input:focus,
+    .signup-form input.form-control:focus {
+        border-color: #2563eb !important;
+        box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15) !important;
+        background-color: #ffffff !important;
+    }
+
+    .signup-form input.signup-input::placeholder,
+    .signup-form input.form-control::placeholder {
+        color: #94a3b8 !important;
+        font-size: 14px !important;
+        opacity: 1 !important;
+    }
+
+    /* Password Input & Eye Button Container */
+    .signup-form .password-input-wrapper {
+        position: relative !important;
+        width: 100% !important;
+        display: flex !important;
+        align-items: center !important;
+        box-sizing: border-box !important;
+    }
+
+    .signup-form .password-input-wrapper input.password-input {
+        padding-right: 46px !important;
+        width: 100% !important;
+    }
+
+    /* Visibility Toggle Button */
+    .signup-form .toggle-password-btn {
+        position: absolute !important;
+        right: 8px !important;
+        top: 50% !important;
+        transform: translateY(-50%) !important;
+        background: transparent !important;
+        border: none !important;
+        padding: 6px !important;
+        margin: 0 !important;
+        border-radius: 6px !important;
+        color: #64748b !important;
+        cursor: pointer !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        width: 32px !important;
+        height: 32px !important;
+        line-height: 1 !important;
+        box-shadow: none !important;
+        transition: color 0.15s ease, background-color 0.15s ease !important;
+        z-index: 2 !important;
+    }
+
+    .signup-form .toggle-password-btn:hover {
+        color: #0f172a !important;
+        background-color: #f1f5f9 !important;
+    }
+
+    .signup-form .toggle-password-btn:focus {
+        outline: none !important;
+        box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.25) !important;
+    }
+
+    .signup-form .toggle-password-btn svg {
+        width: 18px !important;
+        height: 18px !important;
+        display: block !important;
+    }
+
+    /* Terms */
+    .signup-form .terms-field-group {
+        margin-top: 4px !important;
+        margin-bottom: 20px !important;
+    }
+
+    .signup-form .terms-label {
+        display: flex !important;
+        align-items: flex-start !important;
+        gap: 8px !important;
+        font-size: 13px !important;
+        color: #475569 !important;
+        margin: 0 !important;
+        cursor: pointer !important;
+        line-height: 1.4 !important;
+    }
+
+    .signup-form .terms-checkbox {
+        margin-top: 3px !important;
+        accent-color: #2563eb !important;
+        width: 16px !important;
+        height: 16px !important;
+    }
+
+    /* Actions & Signup Button */
+    .signup-form .page-card-actions {
+        display: flex !important;
+        flex-direction: column !important;
+        align-items: center !important;
+        width: 100% !important;
+        margin: 6px 0 0 0 !important;
+        padding: 0 !important;
+        box-sizing: border-box !important;
+    }
+
+    .signup-form .btn-signup {
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        width: 100% !important;
+        height: 44px !important;
+        background-color: #2563eb !important;
+        color: #ffffff !important;
+        border: 1px solid #2563eb !important;
+        border-radius: 8px !important;
+        font-size: 15px !important;
+        font-weight: 600 !important;
+        cursor: pointer !important;
+        transition: all 0.2s ease !important;
+        box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px -1px rgba(0, 0, 0, 0.1) !important;
+        margin: 0 !important;
+        text-align: center !important;
+        outline: none !important;
+        line-height: 1 !important;
+    }
+
+    .signup-form .btn-signup:hover:not(:disabled) {
+        background-color: #1d4ed8 !important;
+        border-color: #1d4ed8 !important;
+        box-shadow: 0 4px 6px -1px rgba(37, 99, 235, 0.2) !important;
+    }
+
+    .signup-form .btn-signup:active:not(:disabled) {
+        background-color: #1e40af !important;
+        transform: translateY(1px) !important;
+    }
+
+    .signup-form .btn-signup:disabled {
+        background-color: #cbd5e1 !important;
+        border-color: #cbd5e1 !important;
+        color: #64748b !important;
+        cursor: not-allowed !important;
+        box-shadow: none !important;
+        opacity: 0.8 !important;
+    }
+
+    .signup-form .btn-signup[aria-busy="true"] {
+        cursor: wait !important;
+        opacity: 0.85 !important;
+    }
+
+    /* Login Link Navigation */
+    .signup-form .login-redirect-message {
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        gap: 6px !important;
+        margin: 20px 0 0 0 !important;
+        text-align: center !important;
+        font-size: 14px !important;
+        color: #64748b !important;
+        width: 100% !important;
+    }
+
+    .signup-form .login-redirect-message a.login-link {
+        color: #2563eb !important;
+        font-weight: 600 !important;
+        text-decoration: none !important;
+        transition: color 0.15s ease !important;
+    }
+
+    .signup-form .login-redirect-message a.login-link:hover {
+        color: #1d4ed8 !important;
+        text-decoration: underline !important;
+    }
+
+    /* Validation & Banners */
+    .signup-form .field-error {
+        color: #ef4444 !important;
+        font-size: 12.5px !important;
+        margin: 4px 0 0 0 !important;
+        text-align: left !important;
+        width: 100% !important;
+        display: none;
+    }
+
+    .signup-form .form-group.invalid .field-error {
+        display: block !important;
+    }
+
+    .signup-form .form-group.invalid input.signup-input {
+        border-color: #ef4444 !important;
+        box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.15) !important;
+    }
+
+    .signup-form .login-error-banner,
+    .signup-form .login-success-banner {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 12px 16px;
+        border-radius: 8px;
+        font-size: 13.5px;
+        font-weight: 500;
+        margin-bottom: 18px;
+        width: 100%;
+        box-sizing: border-box;
+    }
+
+    .signup-form .login-error-banner {
+        background-color: #fef2f2 !important;
+        border: 1px solid #fecaca !important;
+        color: #991b1b !important;
+    }
+
+    .signup-form .login-success-banner {
+        background-color: #f0fdf4 !important;
+        border: 1px solid #bbf7d0 !important;
+        color: #166534 !important;
+    }
+
+    .signup-form .login-error-banner a {
+        color: inherit !important;
+        font-weight: 600 !important;
+        text-decoration: underline !important;
+    }
+
+    /* Responsive Mobile Breakpoint */
+    @media (max-width: 640px) {
+        .for-signup {
+            min-height: auto !important;
+            padding: 24px 12px !important;
+        }
+
+        .for-signup .page-card {
+            width: 100% !important;
+            max-width: 100% !important;
+            padding: 28px 20px !important;
+            border-radius: 12px !important;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05) !important;
+        }
+
+        .for-signup .page-card-head h4 {
+            font-size: 20px !important;
+        }
+    }
+
+    /* Orange and Black Theme for /login and Separate Signup Page */
+    body:has(.for-login), body {
+        background-color: #111111 !important;
+    }
+    .page-card {
+        background-color: #1C1C1C !important;
+        border: 1px solid #333333 !important;
+        border-radius: 14px !important;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5) !important;
+    }
+    .page-card-head h4 {
+        color: #FFFFFF !important;
+        font-weight: 700 !important;
+    }
+    .form-signin .form-control {
+        background-color: #111111 !important;
+        border: 1px solid #333333 !important;
+        color: #FFFFFF !important;
+        border-radius: 8px !important;
+        height: 44px !important;
+    }
+    .form-signin .form-control:focus {
+        border-color: #FF6B00 !important;
+        box-shadow: 0 0 0 2px rgba(255, 107, 0, 0.25) !important;
+    }
+    .form-signin .form-control::placeholder {
+        color: #555555 !important;
+    }
+    .btn-login, .btn-primary {
+        background-color: #FF6B00 !important;
+        border-color: #FF6B00 !important;
+        color: #FFFFFF !important;
+        border-radius: 8px !important;
+        height: 44px !important;
+        font-weight: 600 !important;
+    }
+    .btn-login:hover, .btn-primary:hover {
+        background-color: #FF8C00 !important;
+        border-color: #FF8C00 !important;
+    }
+    .forgot-password-message a, .sign-up-message a {
+        color: #FF6B00 !important;
+        font-weight: 600 !important;
+    }
+    .forgot-password-message a:hover, .sign-up-message a:hover {
+        color: #FF8C00 !important;
+        text-decoration: underline !important;
+    }
+    .sign-up-message {
+        color: #A3A3A3 !important;
+        margin-top: 18px !important;
+    }
+    .toggle-password {
+        color: #A3A3A3 !important;
+    }
+    .field-icon svg {
+        stroke: #A3A3A3 !important;
+    }
+    section.for-signup {
+        display: none !important;
+    }
+</style>
+
+<script>
+    let signup_button_label = "";
+
+    frappe.ready(function () {
+        if (window.location.hash === '#signup') {
+            window.location.replace('/signup');
+            return;
+        }
+
+        $('a[href="#signup"]').attr('href', '/signup').text('Create Account').on('click', function(e) {
+            e.preventDefault();
+            window.location.href = '/signup';
+        });
+
+        window.addEventListener('hashchange', function() {
+            if (window.location.hash === '#signup') {
+                window.location.replace('/signup');
+            }
+        });
+        // Dynamically add subtitle if not present
+        if (!$(".for-signup .page-card-head .signup-subtitle").length) {
+            $(".for-signup .page-card-head h4").after('<p class="signup-subtitle">{{ _("Start your learning journey today.") }}</p>');
+        }
+
+        signup_button_label = $(".signup-form .btn-signup").text().trim();
+
+        $("#user_category").on("change", () => {
+            clear_field_error("user_category");
+        });
+
+        $("#signup_fullname, #signup_email, #signup_password").on("input", () => {
+            toggle_signup_button();
+        });
+
+        $("#toggle_signup_password").on("click", function (e) {
+            e.preventDefault();
+            const input = $("#signup_password");
+            const isPassword = input.attr("type") === "password";
+            input.attr("type", isPassword ? "text" : "password");
+            const svg = $(this).find("svg");
+            if (isPassword) {
+                svg.html('<path d="M9.88 9.88a3 3 0 1 0 4.24 4.24"></path><path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68"></path><path d="M6.61 6.61A13.526 13.526 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61"></path><line x1="2" x2="22" y1="2" y2="22"></line>');
+            } else {
+                svg.html('<path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"></path><circle cx="12" cy="12" r="3"></circle>');
+            }
+        });
+
+        $(window).on("hashchange", () => {
+            reset_signup_form();
+            if (window.location.hash === "#signup" && !$(".for-signup .page-card-head .signup-subtitle").length) {
+                $(".for-signup .page-card-head h4").after('<p class="signup-subtitle">{{ _("Start your learning journey today.") }}</p>');
+            }
+        });
+
+        $(".signup-form").on("submit", (e) => {
+            signup(e);
+        });
+
+        toggle_signup_button();
+    });
+
+    const clear_field_error = (field) => {
+        $("#" + field).closest(".form-group").removeClass("invalid").find(".field-error").text("");
+    }
+
+    const toggle_signup_button = () => {
+        const full_name = ($("#signup_fullname").val() || "").trim();
+        const email = ($("#signup_email").val() || "").trim();
+        const password = ($("#signup_password").val() || "").trim();
+        const filled = full_name && email && password.length >= 6;
+        $(".signup-form .btn-signup").prop("disabled", !filled);
+    }
+
+    const reset_signup_form = () => {
+        const form = $(".signup-form");
+        form.find("input:not([type='submit'])").val("").prop("checked", false);
+        const userCategory = form.find("#user_category")[0];
+        if (userCategory) {
+            userCategory.value = "";
+            userCategory.dispatchEvent(new Event("change", { bubbles: true }));
+        }
+        form.find(".form-group").removeClass("invalid").find(".field-error").text("");
+        form.find(".page-card-body").removeClass("invalid");
+        form.find(".login-error-banner, .login-success-banner").addClass("hidden");
+        form.find(".btn-signup").removeAttr("aria-busy").text(signup_button_label);
+        toggle_signup_button();
+    }
+
+    const signup = (e) => {
+        e.preventDefault();
+        const email = ($("#signup_email").val() || "").trim();
+        const full_name = frappe.utils.xss_sanitise(($("#signup_fullname").val() || "").trim());
+        const password = ($("#signup_password").val() || "").trim();
+        const user_category = $("#user_category").length ? $("#user_category").val() : "";
+
+        if (!full_name) {
+            login.show_field_error("signup_fullname", {{ _("Full name is required.") | tojson }});
+            return false;
+        }
+
+        if (!email || !validate_email(email)) {
+            login.show_field_error("signup_email", {{ _("Please enter a valid email.") | tojson }});
+            return false;
+        }
+
+        if (!password || password.length < 6) {
+            login.show_field_error("signup_password", {{ _("Password must be at least 6 characters.") | tojson }});
+            return false;
+        }
+
+        if ($("#user_category").length && !user_category) {
+            login.show_field_error("user_category", {{ _("Please select a category.") | tojson }});
+            return false;
+        }
+
+        if ($("#signup-terms").length && !$("#signup-terms").prop("checked")) {
+            login.show_field_error("signup-terms", {{ _("Please accept the terms to continue.") | tojson }});
+            return false;
+        }
+
+        $(".signup-form .btn-signup").attr("aria-busy", "true").prop("disabled", true).text({{ _("Creating Account...") | tojson }});
+
+        frappe.call({
+            method: "lms.lms.user.sign_up",
+            args: {
+                "email": email,
+                "full_name": full_name,
+                "password": password,
+                "verify_terms": $("#signup-terms").prop("checked") ? 1 : 0,
+                "user_category": user_category
+            },
+            statusCode: signup_handlers()
+        });
+        return false;
+    }
+
+    const signup_handlers = () => {
+        return Object.assign({}, login.login_handlers, {
+            200: (data) => {
+                const [code, message] = data.message;
+                const section = $("section:visible");
+
+                if (cint(code) === 0) {
+                    hide_signup_loading();
+                    section.find(".login-success-banner").addClass("hidden");
+                    show_signup_error(message);
+                } else {
+                    login.set_status({{ _("Success") | tojson }}, "green");
+                    section.find(".login-error-banner").addClass("hidden");
+                    show_signup_success(message);
+                    setTimeout(() => {
+                        window.location.hash = "#login";
+                        $("#login_email").val(($("#signup_email").val() || "").trim());
+                        $("#login_password").focus();
+                    }, 2500);
+                }
+            }
+        });
+    }
+
+    const hide_signup_loading = () => {
+        $(".signup-form .btn-signup").removeAttr("aria-busy").text(signup_button_label);
+        toggle_signup_button();
+    }
+
+    const reveal_banner = (banner) => banner.css("display", "flex").removeClass("hidden");
+
+    const show_signup_success = (message) => {
+        const banner = $("section:visible .login-success-banner");
+        banner.find(".es-alert__title").text(message);
+        reveal_banner(banner);
+    }
+
+    const show_signup_error = (message) => {
+        const banner = $("section:visible .login-error-banner");
+        banner.find(".es-alert__title").text(message);
+        reveal_banner(banner);
+    }
+</script>

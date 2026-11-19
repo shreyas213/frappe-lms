@@ -1,0 +1,40 @@
+# Virtual Environment
+env/
+venv/
+*.egg-info/
+.installed.cfg
+pip-wheel-metadata/
+
+# Python cache & artifacts
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.pytest_cache/
+
+# Node / Frontend dependencies & caches
+node_modules/
+.npm/
+.yarn/cache/
+*.tsbuildinfo
+
+# Logs & Temporary files
+logs/
+*.log
+*.pid
+*.sock
+*.mariadb.sock
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Bench site runtime state & temporary chunk staging
+sites/*/locks/
+sites/*/logs/
+sites/*/private/files/chunks/
+sites/*/indexes/
+sites/*/.test_log
+sites/*/touched_tables.json
+sites/*/learning.db
+.git_app_backup/

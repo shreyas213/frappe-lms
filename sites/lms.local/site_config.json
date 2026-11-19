@@ -1,0 +1,9 @@
+{
+ "allow_tests": true,
+ "db_name": "_8887acabcc6c82fa",
+ "db_password": "zq266D3EX0byHBel",
+ "db_type": "mariadb",
+ "max_file_size": 2147483648,
+ "max_video_size_mb": 2048,
+ "http_timeout": 600
+}

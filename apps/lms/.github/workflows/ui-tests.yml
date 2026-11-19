@@ -1,0 +1,164 @@
+name: UI Tests
+
+on:
+  pull_request:
+    paths-ignore:
+      - "**.md"
+      - "lms/locale/**"
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  # Do not change this as GITHUB_TOKEN is being used by roulette
+  contents: read
+  # The plan job reads the pull request's labels.
+  pull-requests: read
+
+jobs:
+  plan:
+    name: Plan
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      run: ${{ steps.plan.outputs.run }}
+      full: ${{ steps.plan.outputs.full }}
+    steps:
+      # Pull requests into develop and the hotfix branches skip this suite: it runs every hour
+      # on the branch instead (branch-status.yml on develop), and on the release pull request.
+      # A label runs it on one pull request. Labels are read live, so a re-run sees a new one.
+      - id: plan
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR: ${{ github.event.pull_request.number }}
+          BASE: ${{ github.base_ref }}
+        run: |
+          labels=$(gh pr view "$PR" --repo "$GITHUB_REPOSITORY" --json labels --jq '[.labels[].name]')
+          has() { jq -e --arg l "$1" 'index($l) != null' <<<"$labels" >/dev/null; }
+          full=false
+          if has all-tests || has fixes-develop; then full=true; fi
+          run=true
+          if [ "$BASE" = develop ] || [[ "$BASE" == *-hotfix ]]; then
+            run=false
+            if has "Run UI Tests" || has fixes-develop; then run=true; fi
+          fi
+          echo "run=$run" >> "$GITHUB_OUTPUT"
+          echo "full=$full" >> "$GITHUB_OUTPUT"
+          echo "Base $BASE, labels $labels: run=$run full=$full"
+
+  test:
+    name: UI Tests (Playwright)
+    needs: plan
+    if: >-
+      !cancelled() && (github.event_name != 'pull_request' || needs.plan.outputs.run == 'true')
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    services:
+      redis:
+        image: redis:alpine
+        ports:
+          - 6379:6379
+      mariadb:
+        image: mariadb:10.8
+        env:
+          MARIADB_ROOT_PASSWORD: 123
+        ports:
+          - 3306:3306
+        options: --health-cmd="mysqladmin ping" --health-interval=5s --health-timeout=2s --health-retries=3
+
+    steps:
+      # Depth 2 keeps the PR base, the merge commit's first parent.
+      - name: Clone
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - name: Select tests
+        id: select
+        if: >-
+          github.event_name == 'pull_request' &&
+          needs.plan.outputs.full != 'true'
+        run: |
+          set -euo pipefail
+          git diff --name-status --no-renames HEAD^1 HEAD \
+            | .github/helper/changed-tests.sh e2e >> "$GITHUB_OUTPUT"
+
+      - name: Add to Hosts
+        run: echo "127.0.0.1 lms.test" | sudo tee -a /etc/hosts
+
+      - uses: ./.github/actions/setup-bench
+        with:
+          site: lms.test
+          db-root-password: "123"
+          build-assets: "true"
+          frappe-branch: version-15
+          payments-branch: version-15
+          python-version: "3.11"
+          site-config: >-
+            {
+              "allow_tests": true,
+              "enable_ui_tests": true,
+              "auto_email_id": "test@example.com",
+              "mail_server": "smtp.example.com",
+              "mail_login": "test@example.com",
+              "mail_password": "test",
+              "host_name": "http://lms.test:8000",
+              "monitor": 1,
+              "server_script_enabled": true,
+              "mute_emails": true
+            }
+
+      - name: Site Setup
+        working-directory: /home/runner/frappe-bench
+        run: |
+          bench --site lms.test execute frappe.utils.install.complete_setup_wizard
+          bench --site lms.test execute frappe.tests.ui_test_helpers.create_test_user
+          bench --site lms.test set-password frappe@example.com admin
+          bench --site lms.test execute lms.lms.utils.persona_captured
+
+      - name: Start bench
+        working-directory: /home/runner/frappe-bench
+        run: |
+          sed -i -e 's/^watch:/# watch:/' -e 's/^schedule:/# schedule:/' Procfile
+          bench start &> bench_start.log &
+          curl --silent --show-error --retry 30 --retry-delay 2 --retry-all-errors \
+            --output /dev/null http://lms.test:8000/api/method/ping
+
+      - name: Cache Playwright browsers
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: ${{ runner.os }}-playwright-${{ hashFiles('yarn.lock') }}
+
+      - name: Install Playwright browsers
+        working-directory: /home/runner/frappe-bench/apps/lms
+        run: npx playwright install --with-deps chromium
+
+      - name: UI Tests
+        working-directory: /home/runner/frappe-bench/apps/lms
+        # SPECS is empty on a full run.
+        run: |
+          read -ra specs <<< "$SPECS"
+          npx playwright test --project=setup --project=e2e "${specs[@]}"
+        env:
+          PLAYWRIGHT_BASE_URL: http://lms.test:8000
+          CI: "true"
+          SPECS: ${{ steps.select.outputs.tests }}
+
+      - name: Upload Playwright results if tests fail
+        if: ${{ failure() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-results
+          path: |
+            /home/runner/frappe-bench/apps/lms/test-results
+            /home/runner/frappe-bench/apps/lms/playwright-report
+          if-no-files-found: ignore
+
+      - name: Show bench output
+        if: ${{ always() }}
+        run: cat ~/frappe-bench/bench_start.log || true

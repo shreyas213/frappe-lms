@@ -1,0 +1,483 @@
+{% extends "templates/web.html" %}
+
+{% block title %} {{ _("Create Account") }} {% endblock %}
+
+{% block head_include %}
+<style>
+    :root, body {
+        background-color: #111111 !important;
+        color: #FFFFFF !important;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    }
+
+    .signup-page-container {
+        min-height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 24px 16px;
+        background-color: #111111;
+    }
+
+    .signup-card {
+        width: 100%;
+        max-width: 460px;
+        background: #1C1C1C;
+        border: 1px solid #333333;
+        border-radius: 14px;
+        padding: 38px 36px;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+    }
+
+    .signup-header {
+        text-align: center;
+        margin-bottom: 28px;
+    }
+
+    .signup-logo {
+        max-height: 48px;
+        max-width: 180px;
+        margin: 0 auto 16px;
+        display: block;
+        object-fit: contain;
+    }
+
+    .signup-title {
+        color: #FFFFFF;
+        font-size: 1.5rem;
+        font-weight: 700;
+        margin-bottom: 6px;
+        letter-spacing: -0.02em;
+    }
+
+    .signup-subtitle {
+        color: #A3A3A3;
+        font-size: 0.925rem;
+        margin: 0;
+    }
+
+    .signup-field-group {
+        margin-bottom: 20px;
+        position: relative;
+    }
+
+    .signup-label {
+        display: block;
+        color: #A3A3A3;
+        font-size: 0.875rem;
+        font-weight: 500;
+        margin-bottom: 6px;
+    }
+
+    .signup-label .required-star {
+        color: #EF4444;
+        margin-left: 2px;
+    }
+
+    .signup-input {
+        width: 100% !important;
+        height: 44px !important;
+        background-color: #111111 !important;
+        border: 1px solid #333333 !important;
+        border-radius: 8px !important;
+        padding: 10px 14px !important;
+        color: #FFFFFF !important;
+        font-size: 0.95rem !important;
+        transition: border-color 0.2s, box-shadow 0.2s !important;
+        box-sizing: border-box !important;
+    }
+
+    .signup-input:focus {
+        border-color: #FF6B00 !important;
+        outline: none !important;
+        box-shadow: 0 0 0 2px rgba(255, 107, 0, 0.25) !important;
+    }
+
+    .signup-input::placeholder {
+        color: #555555 !important;
+    }
+
+    .password-wrapper {
+        position: relative;
+        width: 100%;
+    }
+
+    .password-wrapper .signup-input {
+        padding-right: 44px !important;
+    }
+
+    .password-toggle-btn {
+        position: absolute;
+        right: 12px;
+        top: 50%;
+        transform: translateY(-50%);
+        background: none;
+        border: none;
+        padding: 4px;
+        cursor: pointer;
+        color: #A3A3A3;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: color 0.15s;
+    }
+
+    .password-toggle-btn:hover {
+        color: #FF6B00;
+    }
+
+    .field-error-msg {
+        color: #EF4444;
+        font-size: 0.8125rem;
+        margin-top: 5px;
+        display: none;
+    }
+
+    .signup-field-group.has-error .signup-input {
+        border-color: #EF4444 !important;
+    }
+
+    .signup-field-group.has-error .field-error-msg {
+        display: block;
+    }
+
+    .btn-create-account {
+        width: 100% !important;
+        height: 46px !important;
+        background-color: #FF6B00 !important;
+        border: 1px solid #FF6B00 !important;
+        border-radius: 8px !important;
+        color: #FFFFFF !important;
+        font-size: 1rem !important;
+        font-weight: 600 !important;
+        cursor: pointer !important;
+        margin-top: 12px !important;
+        margin-bottom: 20px !important;
+        transition: background-color 0.2s, transform 0.1s !important;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .btn-create-account:hover:not(:disabled) {
+        background-color: #FF8C00 !important;
+        border-color: #FF8C00 !important;
+    }
+
+    .btn-create-account:disabled {
+        opacity: 0.55 !important;
+        cursor: not-allowed !important;
+    }
+
+    .login-redirect-link {
+        text-align: center;
+        color: #A3A3A3;
+        font-size: 0.925rem;
+        margin: 0;
+    }
+
+    .login-redirect-link a {
+        color: #FF6B00;
+        font-weight: 600;
+        text-decoration: none;
+        margin-left: 4px;
+        transition: color 0.15s;
+    }
+
+    .login-redirect-link a:hover {
+        color: #FF8C00;
+        text-decoration: underline;
+    }
+
+    .signup-alert {
+        padding: 12px 16px;
+        border-radius: 8px;
+        margin-bottom: 20px;
+        font-size: 0.875rem;
+        display: none;
+        align-items: center;
+        gap: 10px;
+    }
+
+    .signup-alert-error {
+        background: rgba(239, 68, 68, 0.12);
+        border: 1px solid #EF4444;
+        color: #FCA5A5;
+    }
+
+    .signup-alert-success {
+        background: rgba(34, 197, 94, 0.12);
+        border: 1px solid #22C55E;
+        color: #86EFAC;
+    }
+
+    .spinner {
+        border: 2px solid rgba(255, 255, 255, 0.3);
+        border-top: 2px solid #FFFFFF;
+        border-radius: 50%;
+        width: 18px;
+        height: 18px;
+        animation: spin 0.8s linear infinite;
+        margin-right: 8px;
+        display: inline-block;
+    }
+
+    @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+    }
+
+    /* Override navbar and footer on standalone signup page */
+    header, footer, .web-footer, .navbar {
+        display: none !important;
+    }
+</style>
+{% endblock %}
+
+{% block page_content %}
+<div class="signup-page-container">
+    <div class="signup-card">
+        <div class="signup-header">
+            {% if logo %}
+            <img src="{{ logo }}" alt="{{ app_name }}" class="signup-logo">
+            {% endif %}
+            <h1 class="signup-title">{{ _("Create a Frappe Account") }}</h1>
+            <p class="signup-subtitle">{{ _("Start your learning journey today") }}</p>
+        </div>
+
+        <div id="signup_alert_error" class="signup-alert signup-alert-error">
+            <span id="signup_error_text"></span>
+        </div>
+        <div id="signup_alert_success" class="signup-alert signup-alert-success">
+            <span id="signup_success_text"></span>
+        </div>
+
+        <form id="signup_form" novalidate onsubmit="return handleSignup(event);">
+            <div class="signup-field-group" id="group_fullname">
+                <label for="signup_fullname" class="signup-label">
+                    {{ _("Full Name") }} <span class="required-star">*</span>
+                </label>
+                <input type="text" id="signup_fullname" class="signup-input"
+                    placeholder="{{ _('Jane Doe') }}" required autofocus autocomplete="name">
+                <div class="field-error-msg" id="error_fullname"></div>
+            </div>
+
+            <div class="signup-field-group" id="group_email">
+                <label for="signup_email" class="signup-label">
+                    {{ _("Email Address") }} <span class="required-star">*</span>
+                </label>
+                <input type="email" id="signup_email" class="signup-input"
+                    placeholder="{{ _('jane@example.com') }}" required autocomplete="email">
+                <div class="field-error-msg" id="error_email"></div>
+            </div>
+
+            <div class="signup-field-group" id="group_password">
+                <label for="signup_password" class="signup-label">
+                    {{ _("Password") }} <span class="required-star">*</span>
+                </label>
+                <div class="password-wrapper">
+                    <input type="password" id="signup_password" class="signup-input"
+                        placeholder="{{ _('At least 6 characters') }}" required minlength="6" autocomplete="new-password">
+                    <button type="button" class="password-toggle-btn" onclick="togglePasswordVisibility('signup_password', this);" aria-label="Toggle password">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"></path>
+                            <circle cx="12" cy="12" r="3"></circle>
+                        </svg>
+                    </button>
+                </div>
+                <div class="field-error-msg" id="error_password"></div>
+            </div>
+
+            <div class="signup-field-group" id="group_confirm_password">
+                <label for="signup_confirm_password" class="signup-label">
+                    {{ _("Confirm Password") }} <span class="required-star">*</span>
+                </label>
+                <div class="password-wrapper">
+                    <input type="password" id="signup_confirm_password" class="signup-input"
+                        placeholder="{{ _('Repeat your password') }}" required autocomplete="new-password">
+                    <button type="button" class="password-toggle-btn" onclick="togglePasswordVisibility('signup_confirm_password', this);" aria-label="Toggle confirm password">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"></path>
+                            <circle cx="12" cy="12" r="3"></circle>
+                        </svg>
+                    </button>
+                </div>
+                <div class="field-error-msg" id="error_confirm_password"></div>
+            </div>
+
+            <button type="submit" id="btn_submit_signup" class="btn-create-account">
+                <span id="btn_text">{{ _("Create Account") }}</span>
+            </button>
+
+            <p class="login-redirect-link">
+                {{ _("Already have an account?") }}
+                <a href="/login">{{ _("Login") }}</a>
+            </p>
+        </form>
+    </div>
+</div>
+
+<script>
+    function togglePasswordVisibility(inputId, btn) {
+        const input = document.getElementById(inputId);
+        if (!input) return;
+        if (input.type === "password") {
+            input.type = "text";
+            btn.innerHTML = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M9.88 9.88a3 3 0 1 0 4.24 4.24"></path>
+                <path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68"></path>
+                <path d="M6.61 6.61A13.526 13.526 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61"></path>
+                <line x1="2" y1="2" x2="22" y2="22"></line>
+            </svg>`;
+        } else {
+            input.type = "password";
+            btn.innerHTML = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"></path>
+                <circle cx="12" cy="12" r="3"></circle>
+            </svg>`;
+        }
+    }
+
+    function validateEmail(email) {
+        return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+    }
+
+    function clearErrors() {
+        document.querySelectorAll(".signup-field-group").forEach(el => el.classList.remove("has-error"));
+        document.querySelectorAll(".field-error-msg").forEach(el => el.innerText = "");
+        const errAlert = document.getElementById("signup_alert_error");
+        if (errAlert) errAlert.style.display = "none";
+    }
+
+    function setFieldError(field, msg) {
+        const group = document.getElementById("group_" + field);
+        const err = document.getElementById("error_" + field);
+        if (group) group.classList.add("has-error");
+        if (err) {
+            err.innerText = msg;
+            err.style.display = "block";
+        }
+    }
+
+    function checkFormValidity() {
+        const fullName = (document.getElementById("signup_fullname").value || "").trim();
+        const email = (document.getElementById("signup_email").value || "").trim();
+        const password = document.getElementById("signup_password").value || "";
+        const confirmPassword = document.getElementById("signup_confirm_password").value || "";
+        const submitBtn = document.getElementById("btn_submit_signup");
+
+        if (confirmPassword && password !== confirmPassword) {
+            setFieldError("confirm_password", {{ _("Passwords do not match.") | tojson }});
+        } else if (confirmPassword && password === confirmPassword) {
+            const group = document.getElementById("group_confirm_password");
+            const err = document.getElementById("error_confirm_password");
+            if (group) group.classList.remove("has-error");
+            if (err) err.style.display = "none";
+        }
+
+        const isValid = fullName.length > 0 &&
+                        validateEmail(email) &&
+                        password.length >= 6 &&
+                        password === confirmPassword;
+
+        if (submitBtn) {
+            submitBtn.disabled = !isValid;
+        }
+    }
+
+    document.addEventListener("DOMContentLoaded", function() {
+        const inputs = ["signup_fullname", "signup_email", "signup_password", "signup_confirm_password"];
+        inputs.forEach(id => {
+            const el = document.getElementById(id);
+            if (el) {
+                el.addEventListener("input", checkFormValidity);
+                el.addEventListener("blur", checkFormValidity);
+            }
+        });
+        checkFormValidity();
+    });
+
+    function handleSignup(e) {
+        e.preventDefault();
+        clearErrors();
+
+        const fullName = (document.getElementById("signup_fullname").value || "").trim();
+        const email = (document.getElementById("signup_email").value || "").trim();
+        const password = document.getElementById("signup_password").value || "";
+        const confirmPassword = document.getElementById("signup_confirm_password").value || "";
+
+        if (!fullName) {
+            setFieldError("fullname", {{ _("Full name is required.") | tojson }});
+            return false;
+        }
+        if (!email || !validateEmail(email)) {
+            setFieldError("email", {{ _("Please enter a valid email address.") | tojson }});
+            return false;
+        }
+        if (!password || password.length < 6) {
+            setFieldError("password", {{ _("Password must be at least 6 characters.") | tojson }});
+            return false;
+        }
+        if (password !== confirmPassword) {
+            setFieldError("confirm_password", {{ _("Passwords do not match.") | tojson }});
+            return false;
+        }
+
+        const submitBtn = document.getElementById("btn_submit_signup");
+        const btnText = document.getElementById("btn_text");
+        submitBtn.disabled = true;
+        btnText.innerHTML = `<span class="spinner"></span> {{ _("Creating Account...") }}`;
+
+        frappe.call({
+            method: "lms.lms.user.sign_up",
+            args: {
+                "email": email,
+                "full_name": fullName,
+                "password": password
+            },
+            callback: function(r) {
+                submitBtn.disabled = false;
+                btnText.innerText = {{ _("Create Account") | tojson }};
+
+                if (r.exc) {
+                    const errAlert = document.getElementById("signup_alert_error");
+                    const errText = document.getElementById("signup_error_text");
+                    errText.innerText = {{ _("Registration failed. Please check your inputs or try another email.") | tojson }};
+                    errAlert.style.display = "flex";
+                    return;
+                }
+
+                if (r.message) {
+                    const [code, message] = Array.isArray(r.message) ? r.message : [1, r.message];
+                    if (parseInt(code) === 0) {
+                        const errAlert = document.getElementById("signup_alert_error");
+                        const errText = document.getElementById("signup_error_text");
+                        errText.innerText = message || {{ _("Registration failed.") | tojson }};
+                        errAlert.style.display = "flex";
+                    } else {
+                        const successAlert = document.getElementById("signup_alert_success");
+                        const successText = document.getElementById("signup_success_text");
+                        successText.innerText = message || {{ _("Account created successfully! Redirecting to login...") | tojson }};
+                        successAlert.style.display = "flex";
+                        document.getElementById("signup_form").reset();
+
+                        setTimeout(function() {
+                            window.location.href = "/login";
+                        }, 2000);
+                    }
+                }
+            },
+            error: function(err) {
+                submitBtn.disabled = false;
+                btnText.innerText = {{ _("Create Account") | tojson }};
+                const errAlert = document.getElementById("signup_alert_error");
+                const errText = document.getElementById("signup_error_text");
+                errText.innerText = {{ _("An error occurred during registration. Please try again.") | tojson }};
+                errAlert.style.display = "flex";
+            }
+        });
+
+        return false;
+    }
+</script>
+{% endblock %}
