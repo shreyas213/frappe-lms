@@ -45,7 +45,6 @@ def run_audit():
         dt_name = dt.name
         try:
             meta = frappe.get_meta(dt_name)
-            doc_class = frappe.get_doc(dt_name)
         except Exception as e:
             doctype_errors.append((dt_name, str(e)))
             
