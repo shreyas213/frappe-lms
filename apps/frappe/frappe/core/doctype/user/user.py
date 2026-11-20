@@ -1326,6 +1326,9 @@ def create_contact(user, ignore_links=False, ignore_mandatory=False):
 	if user.name in ["Administrator", "Guest"]:
 		return
 
+	if not frappe.db.exists("User", user.name):
+		return
+
 	contact_name = get_contact_name(user.email)
 	if not contact_name:
 		try:
@@ -1351,7 +1354,7 @@ def create_contact(user, ignore_links=False, ignore_mandatory=False):
 			contact.insert(
 				ignore_permissions=True, ignore_links=ignore_links, ignore_mandatory=ignore_mandatory
 			)
-		except frappe.DuplicateEntryError:
+		except (frappe.DuplicateEntryError, frappe.LinkValidationError):
 			pass
 	else:
 		try:

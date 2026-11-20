@@ -22,6 +22,8 @@ from lms.lms.utils import get_lesson
 CHUNK_SIZE = 5 * 1024 * 1024 # 5 MB
 
 def run_tests():
+    if not os.path.exists("lms.local") and os.path.exists("sites/lms.local"):
+        os.chdir("sites")
     frappe.init("lms.local")
     frappe.connect()
 

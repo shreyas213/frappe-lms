@@ -364,6 +364,32 @@ def attach_files_to_document(doc: "Document", event) -> None:
 			)
 			continue
 
+		# Check if the file already exists in File doctype
+		existing_file_name = frappe.db.get_value("File", {"file_url": value}, "name")
+		if existing_file_name:
+			try:
+				existing_file = frappe.get_doc("File", existing_file_name)
+				existing_file.create_attachment_copy(
+					attached_to_doctype=doc.doctype,
+					attached_to_name=doc.name,
+					attached_to_field=df.fieldname,
+					ignore_permissions=True,
+				)
+				continue
+			except Exception:
+				pass
+
+		# For local files, verify physical existence before insert to avoid FileNotFoundError
+		if value.startswith("/files/") or value.startswith("/private/files/"):
+			from frappe.utils import get_files_path
+			import os
+			if value.startswith("/private/files/"):
+				disk_path = get_files_path(*value.split("/private/files/", 1)[1].split("/"), is_private=1)
+			else:
+				disk_path = get_files_path(*value.split("/files/", 1)[1].split("/"))
+			if not os.path.exists(disk_path):
+				continue
+
 		file: File = frappe.get_doc(
 			doctype="File",
 			file_url=value,

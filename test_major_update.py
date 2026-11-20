@@ -11,6 +11,8 @@ import json
 
 # Initialize Frappe
 import frappe
+if not os.path.exists("lms.local") and os.path.exists("sites/lms.local"):
+    os.chdir("sites")
 frappe.init("lms.local")
 frappe.connect()
 

@@ -33,9 +33,12 @@ logs/
 sites/*/locks/
 sites/*/logs/
 sites/*/private/files/chunks/
+sites/*/private/backups/
 sites/*/indexes/
 sites/*/.test_log
 sites/*/touched_tables.json
 sites/*/learning.db
+config/pids/
+*.rdb
 .git_app_backup/
 /sites/*/public/files/
