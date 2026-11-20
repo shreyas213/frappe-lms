@@ -35,25 +35,37 @@
 					</div>
 
 					<!-- Quick student badge / Action -->
-					<div class="flex items-center gap-4 bg-[#111111]/80 backdrop-blur-md rounded-xl p-3 border border-[#333333]">
-						<UserAvatar
-							:user="studentInfo"
-							class="size-12 ring-2 ring-[#FF6B00]/50 rounded-full"
-						/>
-						<div class="text-left text-xs">
-							<div class="font-bold text-white text-sm truncate max-w-[140px]">
-								{{ studentInfo.full_name }}
+					<div class="flex flex-col bg-[#111111]/80 backdrop-blur-md rounded-xl p-3 border border-[#333333] min-w-[200px]">
+						<div class="flex items-center gap-3">
+							<UserAvatar
+								:user="studentInfo"
+								class="size-11 ring-2 ring-[#FF6B00]/50 rounded-full"
+							/>
+							<div class="text-left text-xs min-w-0">
+								<div class="font-bold text-white text-sm truncate max-w-[130px]">
+									{{ studentInfo.full_name }}
+								</div>
+								<div class="text-[#A3A3A3] truncate max-w-[130px]">
+									{{ studentInfo.email }}
+								</div>
+								<router-link
+									:to="{ name: 'Profile', params: { username: studentInfo.username || user?.data?.username } }"
+									class="inline-flex items-center gap-1 text-[#FF6B00] hover:text-[#FF8C00] mt-0.5 font-semibold"
+								>
+									<span>{{ __('My Profile') }}</span>
+									<span class="lucide-arrow-right size-3" />
+								</router-link>
 							</div>
-							<div class="text-[#A3A3A3] truncate max-w-[140px]">
-								{{ studentInfo.email }}
+						</div>
+						<!-- Profile Completion Meter -->
+						<div class="mt-2.5 pt-2 border-t border-[#333333]">
+							<div class="flex items-center justify-between text-[11px] text-[#A3A3A3] mb-1">
+								<span>{{ __('Profile Completion') }}</span>
+								<span class="font-bold text-[#FF8C00]">{{ stats.profile_completion || 70 }}%</span>
 							</div>
-							<router-link
-								:to="{ name: 'Profile', params: { username: studentInfo.username || user?.data?.username } }"
-								class="inline-flex items-center gap-1 text-[#FF6B00] hover:text-[#FF8C00] mt-1 font-semibold"
-							>
-								<span>{{ __('View Profile') }}</span>
-								<span class="lucide-arrow-right size-3" />
-							</router-link>
+							<div class="w-full bg-[#222222] rounded-full h-1.5 overflow-hidden">
+								<div class="bg-[#FF6B00] h-1.5 rounded-full transition-all duration-500" :style="{ width: `${stats.profile_completion || 70}%` }"></div>
+							</div>
 						</div>
 					</div>
 				</div>
@@ -64,7 +76,7 @@
 			</div>
 
 			<!-- Dashboard KPI Stats Grid -->
-			<div class="grid grid-cols-2 md:grid-cols-5 gap-4">
+			<div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3.5">
 				<!-- Stat 1: Total Enrolled -->
 				<div class="rounded-xl border border-[#333333] bg-[#1C1C1C] p-4 shadow-sm hover:border-[#FF6B00]/50 transition-colors">
 					<div class="flex items-center justify-between text-[#A3A3A3] mb-2">
@@ -113,7 +125,23 @@
 					</div>
 				</div>
 
-				<!-- Stat 4: Overall Progress -->
+				<!-- Stat 4: Learning Hours -->
+				<div class="rounded-xl border border-[#333333] bg-[#1C1C1C] p-4 shadow-sm hover:border-[#FF6B00]/50 transition-colors">
+					<div class="flex items-center justify-between text-[#A3A3A3] mb-2">
+						<span class="text-xs font-medium uppercase tracking-wider">{{ __('Hours') }}</span>
+						<div class="p-2 rounded-lg bg-[#FF6B00]/15 text-[#FF6B00]">
+							<span class="lucide-clock size-4" />
+						</div>
+					</div>
+					<div class="text-2xl font-bold text-white">
+						{{ stats.learning_hours || 0 }} <span class="text-xs text-[#A3A3A3] font-normal">hrs</span>
+					</div>
+					<div class="text-xs text-[#A3A3A3] mt-1">
+						{{ __('Learning time') }}
+					</div>
+				</div>
+
+				<!-- Stat 5: Overall Progress -->
 				<div class="rounded-xl border border-[#333333] bg-[#1C1C1C] p-4 shadow-sm hover:border-[#FF6B00]/50 transition-colors">
 					<div class="flex items-center justify-between text-[#A3A3A3] mb-2">
 						<span class="text-xs font-medium uppercase tracking-wider">{{ __('Overall') }}</span>
@@ -132,8 +160,8 @@
 					</div>
 				</div>
 
-				<!-- Stat 5: Certificates -->
-				<div class="col-span-2 md:col-span-1 rounded-xl border border-[#333333] bg-[#1C1C1C] p-4 shadow-sm hover:border-[#FF6B00]/50 transition-colors">
+				<!-- Stat 6: Certificates -->
+				<div class="rounded-xl border border-[#333333] bg-[#1C1C1C] p-4 shadow-sm hover:border-[#FF6B00]/50 transition-colors">
 					<div class="flex items-center justify-between text-[#A3A3A3] mb-2">
 						<span class="text-xs font-medium uppercase tracking-wider">{{ __('Certificates') }}</span>
 						<div class="p-2 rounded-lg bg-[#FF8C00]/15 text-[#FF8C00]">
@@ -612,27 +640,114 @@
 				</div>
 			</div>
 
+			<!-- Recommended Courses for You -->
+			<div v-if="recommendedCourses.length" class="space-y-3">
+				<div class="flex items-center justify-between">
+					<h2 class="text-lg font-bold text-white flex items-center gap-2">
+						<span class="lucide-sparkles size-5 text-[#FF6B00]" />
+						<span>{{ __('Recommended For You') }}</span>
+					</h2>
+					<router-link
+						:to="{ name: 'Courses' }"
+						class="text-xs text-[#FF6B00] hover:text-[#FF8C00] font-semibold flex items-center gap-1"
+					>
+						<span>{{ __('Explore all') }}</span>
+						<span class="lucide-arrow-right size-3" />
+					</router-link>
+				</div>
+
+				<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+					<router-link
+						v-for="c in recommendedCourses"
+						:key="c.name"
+						:to="{ name: 'CourseDetail', params: { courseName: c.name } }"
+						class="rounded-xl border border-[#333333] bg-[#1C1C1C] hover:border-[#FF6B00]/50 p-4 transition-all flex flex-col justify-between group shadow-sm"
+					>
+						<div class="space-y-2.5">
+							<div
+								class="h-28 rounded-lg bg-cover bg-center border border-[#333333] overflow-hidden"
+								:style="c.image ? { backgroundImage: `url('${encodeURI(c.image)}')` } : { background: 'linear-gradient(135deg, #262626 0%, #171717 100%)' }"
+							>
+								<div v-if="!c.image" class="w-full h-full flex items-center justify-center text-white/40 font-bold text-2xl">
+									{{ c.title?.charAt(0) || 'C' }}
+								</div>
+							</div>
+							<span v-if="c.category" class="inline-block px-2 py-0.5 rounded text-[11px] font-semibold bg-[#FF6B00]/15 text-[#FF8C00]">
+								{{ c.category }}
+							</span>
+							<h4 class="font-bold text-white group-hover:text-[#FF6B00] transition-colors line-clamp-1 text-sm">
+								{{ c.title }}
+							</h4>
+							<p class="text-xs text-[#A3A3A3] line-clamp-2">
+								{{ c.short_introduction || __('Master new skills with this comprehensive course.') }}
+							</p>
+						</div>
+						<div class="mt-4 pt-3 border-t border-[#333333] flex items-center justify-between text-xs">
+							<span class="text-[#A3A3A3]">{{ c.paid_course ? `${c.currency || '$'}${c.course_price}` : __('Free') }}</span>
+							<span class="text-[#FF6B00] font-semibold group-hover:translate-x-0.5 transition-transform inline-flex items-center gap-0.5">
+								<span>{{ __('View Course') }}</span>
+								<span class="lucide-chevron-right size-3" />
+							</span>
+						</div>
+					</router-link>
+				</div>
+			</div>
+
+			<!-- Recent Notifications Preview -->
+			<div v-if="recentNotifications.length" class="space-y-3">
+				<div class="flex items-center justify-between">
+					<h2 class="text-lg font-bold text-white flex items-center gap-2">
+						<span class="lucide-bell size-5 text-[#FF8C00]" />
+						<span>{{ __('Recent Updates & Notifications') }}</span>
+					</h2>
+				</div>
+
+				<div class="rounded-xl border border-[#333333] bg-[#1C1C1C] p-4 shadow-sm divide-y divide-[#333333]">
+					<div
+						v-for="notif in recentNotifications"
+						:key="notif.name"
+						class="py-2.5 first:pt-0 last:pb-0 flex items-center justify-between gap-3 text-xs"
+					>
+						<div class="flex items-center gap-2.5 min-w-0">
+							<span
+								class="size-2 rounded-full shrink-0"
+								:class="notif.read ? 'bg-[#555555]' : 'bg-[#FF6B00]'"
+							/>
+							<span class="text-white truncate font-medium">
+								{{ notif.subject }}
+							</span>
+						</div>
+						<span class="text-[#A3A3A3] shrink-0">
+							{{ formatDate(notif.creation) }}
+						</span>
+					</div>
+				</div>
+			</div>
+
 			<!-- Evaluations Component -->
 			<UpcomingEvaluations :forHome="true" />
 		</div>
 	</div>
 </template>
 
-<script setup lang="ts">
+<script setup>
 import { computed, inject, onMounted, ref } from 'vue'
 import { createResource, LoadingIndicator } from 'frappe-ui'
 import UserAvatar from '@/components/UserAvatar.vue'
 import LiveClassCard from '@/pages/Home/LiveClassCard.vue'
 import UpcomingEvaluations from '@/components/UpcomingEvaluations.vue'
 
-const user = inject<any>('$user')
-const dayjs = inject<any>('$dayjs')
+const user = inject('$user')
+const dayjs = inject('$dayjs')
 
-const props = defineProps<{
-	myLiveClasses?: any
-}>()
+const props = defineProps({
+	myLiveClasses: {
+		type: Object,
+		default: () => ({}),
+	},
+})
 
-const courseFilter = ref<'all' | 'in_progress' | 'completed'>('all')
+const courseFilter = ref('all')
 
 const dashboard = createResource({
 	url: 'lms.lms.api.get_student_dashboard_data',
@@ -656,6 +771,8 @@ const stats = computed(() => dashboard.data?.stats || {
 const continueCourse = computed(() => dashboard.data?.continue_learning || null)
 const enrolledCourses = computed(() => dashboard.data?.enrolled_courses || [])
 const availableCourses = computed(() => dashboard.data?.available_courses || [])
+const recommendedCourses = computed(() => dashboard.data?.recommended_courses || [])
+const recentNotifications = computed(() => dashboard.data?.recent_notifications || [])
 const recentLessons = computed(() => dashboard.data?.recent_lessons || [])
 const certificates = computed(() => dashboard.data?.certificates || [])
 const liveClasses = computed(() => {
@@ -666,15 +783,15 @@ const liveClasses = computed(() => {
 const filteredCourses = computed(() => {
 	const courses = enrolledCourses.value
 	if (courseFilter.value === 'in_progress') {
-		return courses.filter((c: any) => !c.is_completed)
+		return courses.filter((c) => !c.is_completed)
 	}
 	if (courseFilter.value === 'completed') {
-		return courses.filter((c: any) => c.is_completed)
+		return courses.filter((c) => c.is_completed)
 	}
 	return courses
 })
 
-const formatDate = (dateStr?: string) => {
+const formatDate = (dateStr) => {
 	if (!dateStr) return ''
 	try {
 		return dayjs(dateStr).format('DD MMM YYYY')

@@ -4102,6 +4102,13 @@ def recalculate_course_progress(course: str, member: str):
 	# guard but dispatches the save events; on_update rolls up program progress.
 	update_enrollment(membership, {"progress": progress})
 
+	if (progress or 0) >= 100:
+		try:
+			from lms.lms.api import auto_issue_course_certificate
+			auto_issue_course_certificate(course, member)
+		except Exception as e:
+			frappe.log_error(f"Error auto-issuing certificate for {course} to {member}", str(e))
+
 
 def get_field_meta(doctype, fieldnames):
 	"""Returns field metadata for 'fieldnames' from 'doctype'"""

@@ -80,6 +80,15 @@
 						{{ __('to close') }}
 					</span>
 				</div>
+				<router-link
+					v-if="query"
+					:to="{ name: 'SearchResults', query: { q: query } }"
+					@click="show = false"
+					class="text-[#FF6B00] hover:underline font-semibold flex items-center gap-1 text-xs ms-auto"
+				>
+					<span>{{ __('See all on Search page') }}</span>
+					<span class="lucide-arrow-right size-3" />
+				</router-link>
 			</CommandPaletteFooter>
 		</div>
 	</CommandPalette>

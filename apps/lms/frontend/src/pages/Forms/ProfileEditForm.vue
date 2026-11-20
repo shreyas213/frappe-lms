@@ -30,12 +30,18 @@
 						:required="true"
 					/>
 					<FormControl v-model="profile.last_name" :label="__('Last Name')" />
+					<FormControl v-model="profile.phone" :label="__('Phone Number')" type="tel" />
 					<FormControl v-model="profile.headline" :label="__('Headline')" />
 					<FormControl v-model="profile.linkedin" :label="__('LinkedIn ID')" />
 					<FormControl v-model="profile.github" :label="__('GitHub ID')" />
 					<FormControl v-model="profile.twitter" :label="__('Twitter ID')" />
 				</div>
 				<div class="space-y-4">
+					<Uploader
+						v-model="profile.resume"
+						:label="__('Resume / CV (PDF or Document)')"
+						:required="false"
+					/>
 					<FormControl
 						v-model="profile.open_to"
 						type="select"
@@ -132,6 +138,7 @@ const profileData = computed(() => props.profile?.data ?? null)
 const profile = reactive({
 	first_name: '',
 	last_name: '',
+	phone: '',
 	headline: '',
 	language: '',
 	bio: '',
@@ -140,6 +147,7 @@ const profile = reactive({
 	linkedin: '',
 	github: '',
 	twitter: '',
+	resume: '',
 })
 
 // Every key above is a User fieldname except `image`, which edits `user_image`.

@@ -3633,6 +3633,9 @@ def get_profile_details(username: str):
 			"github",
 			"twitter",
 			"creation",
+			"phone",
+			"mobile_no",
+			"resume",
 		],
 		as_dict=True,
 	)
@@ -3650,6 +3653,28 @@ def get_profile_details(username: str):
 
 	if not details:
 		frappe.throw(_("User {0} not found").format(username), frappe.DoesNotExistError)
+
+	# Include child tables for education, experience and skills
+	user_doc = frappe.get_doc("User", details.name)
+	details.phone = details.phone or details.mobile_no or ""
+	details.education = [d.as_dict() for d in user_doc.get("education", [])]
+	details.work_experience = [d.as_dict() for d in user_doc.get("work_experience", [])]
+	details.skills = [d.as_dict() for d in user_doc.get("skill", [])]
+
+	# Calculate profile completion
+	criteria = [
+		bool(details.user_image),
+		bool(details.full_name),
+		bool(details.headline),
+		bool(details.bio),
+		bool(details.phone),
+		bool(details.linkedin or details.github or details.twitter),
+		bool(details.education),
+		bool(details.skills),
+		bool(details.work_experience),
+		bool(details.resume),
+	]
+	details.profile_completion = round((sum(1 for c in criteria if c) / len(criteria)) * 100)
 
 	roles = frappe.get_roles(details.name)
 	if not is_own_profile and not has_moderator_role():
@@ -4879,6 +4904,60 @@ def get_student_dashboard_data():
 	for ac in available_courses:
 		ac.instructors = get_public_instructors("LMS Course", ac.name)
 
+	# Calculate learning hours from completed lessons
+	completed_lessons_list = frappe.get_all(
+		"LMS Course Progress",
+		filters={"member": user, "status": "Complete"},
+		fields=["lesson"],
+	)
+	total_learning_seconds = 0
+	for cl in completed_lessons_list:
+		dur = frappe.db.get_value("Course Lesson", cl.lesson, "duration") or 0
+		if not dur:
+			dur = 600  # Default 10 mins (600s) per completed lesson
+		total_learning_seconds += int(dur)
+	learning_hours = round(total_learning_seconds / 3600.0, 1)
+
+	# Calculate profile completion percentage based on real user doc
+	user_full_doc = frappe.get_doc("User", user)
+	criteria = [
+		bool(user_full_doc.user_image),
+		bool(user_full_doc.full_name),
+		bool(user_full_doc.get("headline")),
+		bool(user_full_doc.bio or user_full_doc.get("short_bio")),
+		bool(user_full_doc.phone or user_full_doc.mobile_no),
+		bool(user_full_doc.get("linkedin") or user_full_doc.get("github") or user_full_doc.get("twitter")),
+		bool(user_full_doc.get("education")),
+		bool(user_full_doc.get("skill")),
+		bool(user_full_doc.get("work_experience")),
+		bool(user_full_doc.get("resume")),
+	]
+	profile_completion = round((sum(1 for c in criteria if c) / len(criteria)) * 100)
+
+	# Recent notifications
+	recent_notifications = frappe.get_all(
+		"Notification Log",
+		filters={"for_user": user},
+		fields=["name", "subject", "read", "creation", "link", "type"],
+		order_by="creation desc",
+		limit=5,
+	)
+
+	# Recommended courses (published courses the user is not yet enrolled in)
+	enrolled_course_names = [e.course for e in enrollments]
+	recommended_filters = {"published": 1, "upcoming": 0}
+	if enrolled_course_names:
+		recommended_filters["name"] = ["not in", enrolled_course_names]
+	recommended_courses = frappe.get_all(
+		"LMS Course",
+		filters=recommended_filters,
+		fields=["name", "title", "image", "short_introduction", "category", "card_gradient", "paid_course", "course_price", "currency"],
+		order_by="creation desc",
+		limit=4,
+	)
+	for rc in recommended_courses:
+		rc.instructors = get_public_instructors("LMS Course", rc.name)
+
 	return {
 		"student_info": user_info,
 		"stats": {
@@ -4887,9 +4966,15 @@ def get_student_dashboard_data():
 			"not_started": not_started_count,
 			"completed": completed_count,
 			"overall_progress": overall_progress,
+			"learning_hours": learning_hours,
+			"profile_completion": profile_completion,
 			"certificates_count": len(certificates),
 			"streak": streak.get("current_streak", 0) if isinstance(streak, dict) else 0,
 		},
+		"profile_completion": profile_completion,
+		"learning_hours": learning_hours,
+		"recent_notifications": recent_notifications,
+		"recommended_courses": recommended_courses,
 		"continue_learning": continue_learning,
 		"enrolled_courses": enrolled_courses,
 		"recent_lessons": recent_lessons,
@@ -5306,6 +5391,13 @@ def mark_lesson_complete(course: str, lesson: str):
 
 	update_enrollment(enrollment_name, {"current_lesson": next_l, "progress": progress_pct})
 
+	cert_data = None
+	if progress_pct >= 100:
+		try:
+			cert_data = auto_issue_course_certificate(course, user)
+		except Exception as e:
+			frappe.log_error(f"Error auto-issuing certificate for {course}: {e}")
+
 	return {
 		"status": "success",
 		"progress": progress_pct,
@@ -5314,6 +5406,7 @@ def mark_lesson_complete(course: str, lesson: str):
 		"total_lessons": total_lessons,
 		"remaining_lessons": remaining_count,
 		"current_lesson": next_l,
+		"certificate": cert_data,
 	}
 
 
@@ -5764,6 +5857,371 @@ def cleanup_expired_upload_chunks():
 					shutil.rmtree(entry_path, ignore_errors=True)
 	except Exception as e:
 		frappe.log_error("Chunk cleanup warning", str(e))
+
+
+@frappe.whitelist()
+def auto_issue_course_certificate(course: str, member: str = None):
+	"""Automatically validates course completion and issues an official LMS Certificate."""
+	if not member:
+		member = frappe.session.user
+	if not member or member == "Guest":
+		return None
+
+	if not frappe.db.exists("LMS Course", course):
+		return None
+
+	# Validate enrollment
+	enrollment = frappe.db.get_value(
+		"LMS Enrollment",
+		{"course": course, "member": member},
+		["name", "progress", "certificate"],
+		as_dict=True,
+	)
+	if not enrollment:
+		return None
+
+	progress = enrollment.progress or 0
+	if progress < 100:
+		total_lessons = frappe.db.count("Course Lesson", {"course": course})
+		completed_lessons = frappe.db.count(
+			"LMS Course Progress", {"course": course, "member": member, "status": "Complete"}
+		)
+		if total_lessons > 0 and completed_lessons >= total_lessons:
+			progress = 100
+			frappe.db.set_value("LMS Enrollment", enrollment.name, "progress", 100)
+		else:
+			return None
+
+	# Check for existing duplicate certificate
+	existing = frappe.db.get_value(
+		"LMS Certificate",
+		{"member": member, "course": course},
+		["name", "course", "course_title", "issue_date", "template", "published"],
+		as_dict=True,
+	)
+	if existing:
+		if enrollment.certificate != existing.name:
+			frappe.db.set_value("LMS Enrollment", enrollment.name, "certificate", existing.name)
+		return existing
+
+	template = "Certificate"
+	pf = frappe.db.get_value("Print Format", {"doc_type": "LMS Certificate"}, "name")
+	if pf:
+		template = pf
+
+	cert = frappe.get_doc({
+		"doctype": "LMS Certificate",
+		"member": member,
+		"course": course,
+		"issue_date": frappe.utils.nowdate(),
+		"template": template,
+		"published": 1,
+	})
+	cert.flags.ignore_permissions = True
+	cert.insert(ignore_permissions=True)
+
+	frappe.db.set_value("LMS Enrollment", enrollment.name, "certificate", cert.name)
+
+	# Issue notification to the student
+	course_title = frappe.db.get_value("LMS Course", course, "title") or course
+	try:
+		notif = frappe.get_doc({
+			"doctype": "Notification Log",
+			"subject": f"Congratulations! You completed {course_title} and earned a verified Certificate.",
+			"for_user": member,
+			"type": "Alert",
+			"document_type": "LMS Certificate",
+			"document_name": cert.name,
+			"link": f"/certificate?certificate_id={cert.name}",
+		})
+		notif.flags.ignore_permissions = True
+		notif.insert(ignore_permissions=True)
+	except Exception as e:
+		frappe.log_error(f"Failed to create notification for certificate {cert.name}: {e}")
+
+	try:
+		frappe.publish_realtime(
+			"certificate_issued",
+			{
+				"course": course,
+				"course_title": course_title,
+				"certificate": cert.name,
+				"issue_date": str(cert.issue_date),
+			},
+			user=member,
+		)
+	except Exception:
+		pass
+
+	return {
+		"name": cert.name,
+		"course": course,
+		"course_title": course_title,
+		"issue_date": str(cert.issue_date),
+		"published": cert.published,
+	}
+
+
+@frappe.whitelist()
+def get_admin_dashboard_metrics():
+	"""Gathers real-time LMS statistics and metrics from MariaDB for administrators."""
+	user = frappe.session.user
+	if user == "Guest":
+		frappe.throw(_("Authentication required."), exc=frappe.AuthenticationError)
+
+	roles = frappe.get_roles(user)
+	is_admin = bool({"System Manager", "Administrator", "Moderator", "Course Creator"} & set(roles))
+	if not is_admin:
+		frappe.throw(_("Permission denied. Administrator or Moderator access required."), exc=frappe.PermissionError)
+
+	total_students = frappe.db.count("User", {"user_type": "Website User", "enabled": 1})
+	if total_students == 0:
+		total_students = frappe.db.count("User", {"enabled": 1})
+
+	cutoff_30d = frappe.utils.add_days(frappe.utils.nowdate(), -30)
+	active_students_list = frappe.get_all(
+		"LMS Course Progress",
+		filters={"modified": [">=", cutoff_30d]},
+		distinct=True,
+		pluck="member",
+	)
+	active_students = len(active_students_list)
+	if not active_students:
+		active_students = frappe.db.count("LMS Enrollment", {"modified": [">=", cutoff_30d]})
+
+	instructors_count = len(frappe.get_all("Course Instructor", distinct=True, pluck="instructor"))
+
+	total_courses = frappe.db.count("LMS Course")
+	published_courses = frappe.db.count("LMS Course", {"published": 1})
+	draft_courses = frappe.db.count("LMS Course", {"published": 0})
+
+	total_enrollments = frappe.db.count("LMS Enrollment")
+	completed_enrollments = frappe.db.count("LMS Enrollment", {"progress": [">=", 100]})
+	in_progress_enrollments = frappe.db.count("LMS Enrollment", {"progress": ["between", [1, 99.99]]})
+	completion_rate = (
+		round((completed_enrollments / total_enrollments) * 100, 1)
+		if total_enrollments > 0
+		else 0
+	)
+
+	certificates_issued = frappe.db.count("LMS Certificate")
+	total_batches = frappe.db.count("LMS Batch")
+	active_jobs = frappe.db.count("Job Opportunity", {"status": "Open"})
+
+	recent_enrollments_raw = frappe.get_all(
+		"LMS Enrollment",
+		fields=["name", "member", "course", "progress", "creation", "modified"],
+		order_by="creation desc",
+		limit=6,
+	)
+	recent_enrollments = []
+	for re_row in recent_enrollments_raw:
+		c_title = frappe.db.get_value("LMS Course", re_row.course, "title") or re_row.course
+		s_name = frappe.db.get_value("User", re_row.member, "full_name") or re_row.member
+		recent_enrollments.append({
+			"name": re_row.name,
+			"student_name": s_name,
+			"student_email": re_row.member,
+			"course_title": c_title,
+			"progress": round(re_row.progress or 0, 1),
+			"enrolled_on": str(re_row.creation),
+		})
+
+	recent_certs_raw = frappe.get_all(
+		"LMS Certificate",
+		fields=["name", "member", "member_name", "course", "course_title", "issue_date"],
+		order_by="creation desc",
+		limit=6,
+	)
+
+	return {
+		"total_students": total_students,
+		"active_students": active_students,
+		"total_instructors": instructors_count,
+		"total_courses": total_courses,
+		"published_courses": published_courses,
+		"draft_courses": draft_courses,
+		"total_enrollments": total_enrollments,
+		"completed_enrollments": completed_enrollments,
+		"in_progress_enrollments": in_progress_enrollments,
+		"completion_rate": completion_rate,
+		"certificates_issued": certificates_issued,
+		"total_batches": total_batches,
+		"active_jobs": active_jobs,
+		"recent_enrollments": recent_enrollments,
+		"recent_certificates": recent_certs_raw,
+	}
+
+
+@frappe.whitelist()
+def global_search(query: str = "", category: str = "All"):
+	"""Search across courses, lessons, batches, instructors, jobs, and certificates."""
+	if not query or not query.strip():
+		return {
+			"results": [],
+			"counts": {"All": 0, "Courses": 0, "Lessons": 0, "Batches": 0, "Instructors": 0, "Jobs": 0, "Certificates": 0},
+			"query": "",
+		}
+
+	from lms.lms.utils import get_lesson_index
+
+	q = query.strip()
+	like_q = f"%{q}%"
+
+	courses = []
+	lessons = []
+	batches = []
+	instructors = []
+	jobs = []
+	certificates = []
+
+	# Search Courses
+	c_records = frappe.get_all(
+		"LMS Course",
+		filters={"published": 1},
+		or_filters={"title": ["like", like_q], "short_introduction": ["like", like_q], "category": ["like", like_q]},
+		fields=["name", "title", "image", "category", "short_introduction"],
+		limit=10,
+	)
+	for c in c_records:
+		courses.append({
+			"id": c.name,
+			"type": "Courses",
+			"title": c.title,
+			"subtitle": c.short_introduction or c.category or "Course",
+			"url": f"/courses/{c.name}",
+			"badge": c.category or "Course",
+			"image": c.image,
+		})
+
+	# Search Lessons
+	l_records = frappe.get_all(
+		"Course Lesson",
+		filters={"title": ["like", like_q]},
+		fields=["name", "title", "course", "chapter"],
+		limit=10,
+	)
+	for l in l_records:
+		c_title = frappe.db.get_value("LMS Course", l.course, "title") or l.course
+		idx = get_lesson_index(l.name) or "1-1"
+		chapter_num, lesson_num = idx.split("-") if "-" in idx else ("1", "1")
+		lessons.append({
+			"id": l.name,
+			"type": "Lessons",
+			"title": l.title,
+			"subtitle": f"Course: {c_title}",
+			"url": f"/courses/{l.course}/learn/{chapter_num}-{lesson_num}",
+			"badge": "Lesson",
+			"image": None,
+		})
+
+	# Search Batches
+	b_records = frappe.get_all(
+		"LMS Batch",
+		filters={"published": 1},
+		or_filters={"title": ["like", like_q], "description": ["like", like_q]},
+		fields=["name", "title", "description", "start_date"],
+		limit=10,
+	)
+	for b in b_records:
+		batches.append({
+			"id": b.name,
+			"type": "Batches",
+			"title": b.title,
+			"subtitle": f"Starts: {b.start_date}" if b.start_date else "Batch",
+			"url": f"/batches/{b.name}",
+			"badge": "Batch",
+			"image": None,
+		})
+
+	# Search Instructors
+	inst_users = frappe.get_all(
+		"User",
+		filters={"enabled": 1},
+		or_filters={"full_name": ["like", like_q], "headline": ["like", like_q]},
+		fields=["name", "username", "full_name", "headline", "user_image"],
+		limit=10,
+	)
+	for u in inst_users:
+		instructors.append({
+			"id": u.username or u.name,
+			"type": "Instructors",
+			"title": u.full_name,
+			"subtitle": u.headline or "Instructor / Member",
+			"url": f"/user/{u.username or u.name}",
+			"badge": "Instructor",
+			"image": u.user_image,
+		})
+
+	# Search Jobs
+	job_records = frappe.get_all(
+		"Job Opportunity",
+		filters={"status": "Open"},
+		or_filters={"job_title": ["like", like_q], "company_name": ["like", like_q], "location": ["like", like_q]},
+		fields=["name", "job_title", "company_name", "location", "company_logo"],
+		limit=10,
+	)
+	for j in job_records:
+		jobs.append({
+			"id": j.name,
+			"type": "Jobs",
+			"title": j.job_title,
+			"subtitle": f"{j.company_name} • {j.location}" if j.location else j.company_name,
+			"url": f"/jobs/{j.name}",
+			"badge": "Job Opening",
+			"image": j.company_logo,
+		})
+
+	# Search Certifications
+	cert_records = frappe.get_all(
+		"LMS Certificate",
+		filters={"published": 1},
+		or_filters={"course_title": ["like", like_q], "member_name": ["like", like_q], "name": ["like", like_q]},
+		fields=["name", "course_title", "member_name", "issue_date"],
+		limit=10,
+	)
+	for ct in cert_records:
+		certificates.append({
+			"id": ct.name,
+			"type": "Certificates",
+			"title": ct.course_title or "Certificate",
+			"subtitle": f"Issued to: {ct.member_name} ({ct.issue_date})",
+			"url": f"/certificate?certificate_id={ct.name}",
+			"badge": "Certified",
+			"image": None,
+		})
+
+	counts = {
+		"All": len(courses) + len(lessons) + len(batches) + len(instructors) + len(jobs) + len(certificates),
+		"Courses": len(courses),
+		"Lessons": len(lessons),
+		"Batches": len(batches),
+		"Instructors": len(instructors),
+		"Jobs": len(jobs),
+		"Certificates": len(certificates),
+	}
+
+	if category == "Courses":
+		results = courses
+	elif category == "Lessons":
+		results = lessons
+	elif category == "Batches":
+		results = batches
+	elif category == "Instructors":
+		results = instructors
+	elif category == "Jobs":
+		results = jobs
+	elif category == "Certificates":
+		results = certificates
+	else:
+		results = courses + lessons + batches + instructors + jobs + certificates
+
+	return {
+		"results": results,
+		"counts": counts,
+		"query": q,
+	}
+
 
 
 

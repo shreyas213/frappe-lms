@@ -29,9 +29,41 @@
 				</div>
 
 				<div class="space-y-1">
+					<div class="text-xs text-[#A3A3A3]">{{ __('Phone Number') }}</div>
+					<div class="font-semibold text-white">{{ profile.data.phone || '-' }}</div>
+				</div>
+
+				<div class="space-y-1">
 					<div class="text-xs text-[#A3A3A3]">{{ __('Member Since') }}</div>
 					<div class="font-semibold text-white">
 						{{ profile.data.creation ? dayjs(profile.data.creation).format('MMMM YYYY') : '-' }}
+					</div>
+				</div>
+
+				<div class="space-y-1">
+					<div class="text-xs text-[#A3A3A3]">{{ __('Profile Completion') }}</div>
+					<div class="flex items-center gap-2">
+						<span class="font-bold text-[#FF8C00]">{{ profile.data.profile_completion || 70 }}%</span>
+						<div class="w-20 bg-[#111111] rounded-full h-1.5 overflow-hidden border border-[#333333]">
+							<div
+								class="bg-[#FF6B00] h-1.5 rounded-full"
+								:style="{ width: `${profile.data.profile_completion || 70}%` }"
+							/>
+						</div>
+					</div>
+				</div>
+
+				<div v-if="profile.data.resume" class="space-y-1 col-span-1 sm:col-span-2">
+					<div class="text-xs text-[#A3A3A3]">{{ __('Attached Resume / CV') }}</div>
+					<div>
+						<a
+							:href="profile.data.resume"
+							target="_blank"
+							class="inline-flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-semibold bg-[#FF6B00]/15 text-[#FF6B00] border border-[#FF6B00]/30 hover:bg-[#FF6B00]/25 transition-colors"
+						>
+							<span class="lucide-file-text size-3.5" />
+							<span>{{ __('View Attached Resume') }}</span>
+						</a>
 					</div>
 				</div>
 			</div>
